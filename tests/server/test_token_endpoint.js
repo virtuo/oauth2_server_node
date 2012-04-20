@@ -1,7 +1,6 @@
 var assert = require('nodetk/testing/custom_assert')
-  , server = require('../../lib/server')
+  , server = require('oauth2-server')
   , tools = require('nodetk/testing/tools')
-  , extend = require('nodetk/utils').extend
   , expect_oauth_error = require('./tools').expect_oauth_error
   ;
 
@@ -18,48 +17,80 @@ exports.module_close = function(callback) {
 };
 
 
-exports.tests = [
-
-['no req.form', 3, function() {
-  var res = 'resobj';
-  var req = {};
-  expect_oauth_error(res, 'oat', 'invalid_request');
-  server.token_endpoint(req, res);
-}],
-
-['req.form with err', 3, function() {
-  var res = 'resobj';
-  var req = {form: {complete: function(callback){callback('error')}}};
-  expect_oauth_error(res, 'oat', 'invalid_request');
-  server.token_endpoint(req, res);
-}],
-
-['Missing parameter', 12, function() {
+var missing_param_test = function(missing_param) {
+  /* Test behaviour when there is a missing param. 
+   * 3 asserts done.
+   */
   server.RFactory = function(){return {}};
   var res = 'resobj';
   var params = {grant_type: 1, client_id: 1, code: 1, redirect_uri: 1};
-  Object.keys(params).forEach(function(missing) {
-    var mparams = extend({}, params);
-    delete mparams[missing];
-    var req = {form: {complete: function(callback){callback(null, mparams)}}};
-    expect_oauth_error(res, 'oat', 'invalid_request');
-    server.token_endpoint(req, res);
-  });
-}],
+  delete params[missing_param];
+  var req = tools.get_fake_post_request('url', params);
+  expect_oauth_error(res, 'oat', 'invalid_request');
+  server.token_endpoint(req, res);
+};
 
-['Unsupported grant_type', 12, function() {
+
+var unsupported_grand_type_test = function(grant_type) {
+  /* Test behaviour when providing unsupported grant_type.
+   * 3 asserts are done.
+   */
   server.RFactory = function(){return {}};
   var res = 'resobj';
-  var params = {client_id: 1, code: 1, redirect_uri: 1};
-  [ "password"
-  , "assertion"
-  , "refresh_token"
-  , "none"].forEach(function(grant_type) {
-    var params2 = extend({grant_type: grant_type}, params);
-    var req = {form: {complete: function(callback){callback(null, params2)}}};
-    expect_oauth_error(res, 'oat', 'unsupported_grant_type');
-    server.token_endpoint(req, res);
-  });
+  var params = {client_id: 1, code: 1, redirect_uri: 1,
+                grant_type: grant_type};
+  var req = tools.get_fake_post_request('url', params);
+  expect_oauth_error(res, 'oat', 'unsupported_grant_type');
+  server.token_endpoint(req, res);
+}
+
+
+exports.tests = [
+
+['Empty POST req', 3, function() {
+  var res = 'resobj';
+  var req = tools.get_fake_post_request('url', {});
+  expect_oauth_error(res, 'oat', 'invalid_request');
+  server.token_endpoint(req, res);
+}],
+
+['POST req with err', 3, function() {
+  var res = 'resobj';
+  var req = tools.get_fake_post_request('url', {}, 'error');
+  expect_oauth_error(res, 'oat', 'invalid_request');
+  server.token_endpoint(req, res);
+}],
+
+['Missing parameter: grant_type', 3, function() {
+  missing_param_test('grant_type');
+}],
+
+['Missing parameter: client_id', 3, function() {
+  missing_param_test('client_id');
+}],
+
+['Missing parameter: code', 3, function() {
+  missing_param_test('code');
+}],
+
+['Missing parameter: redirect_uri', 3, function() {
+  missing_param_test('redirect_uri');
+}],
+
+['Unsupported grant_type: password', 3, function() {
+  unsupported_grand_type_test('password');
+}],
+
+['Unsupported grant_type: assertion', 3, function() {
+  unsupported_grand_type_test('assertion');
+}],
+
+['Unsupported grant_type: refresh_token', 3, function() {
+  unsupported_grand_type_test('refresh_token');
+}],
+
+['Unsupported grant_type: none', 3, function() {
+  unsupported_grand_type_test('none');
 }],
 
 ['client_secret given twice', 3, function() {
@@ -70,10 +101,9 @@ exports.tests = [
     grant_type: 'authorization_code',
     client_secret: 'somesecret'
   };
-  var req = {
-    headers: {authorization: 'Basic somesecret'}
-  , form: {complete: function(callback){callback(null, params)}}
-  };
+  var additional_headers = {authorization: 'Basic somesecret'};
+  var req = tools.get_fake_post_request('url', params, null,
+                                        additional_headers);
   expect_oauth_error(res, 'oat', 'invalid_request');
   server.token_endpoint(req, res);
 }],
@@ -89,10 +119,9 @@ exports.tests = [
     client_id: 'cid', code: 1, redirect_uri: 1,
     grant_type: 'authorization_code',
   };
-  var req = {
-    headers: {authorization: 'Basic somesecret'}
-  , form: {complete: function(callback){callback(null, params)}}
-  };
+  var additional_headers = {authorization: 'Basic somesecret'};
+  var req = tools.get_fake_post_request('url', params, null,
+                                        additional_headers);
   expect_oauth_error(res, 'oat', 'invalid_client');
   server.token_endpoint(req, res);
 }],
@@ -106,12 +135,10 @@ exports.tests = [
   var params = {
     client_id: 'cid', code: 1, redirect_uri: 1,
     grant_type: 'authorization_code',
-    //client_secret: 'somesecret'
   };
-  var req = {
-    headers: {authorization: 'Basic somesecret'}
-  , form: {complete: function(callback){callback(null, params)}}
-  };
+  var additional_headers = {authorization: 'Basic somesecret'};
+  var req = tools.get_fake_post_request('url', params, null,
+                                        additional_headers);
   expect_oauth_error(res, 'oat', 'invalid_client');
   server.token_endpoint(req, res);
 }],
@@ -128,10 +155,7 @@ exports.tests = [
     grant_type: 'authorization_code',
     client_secret: 'somesecret'
   };
-  var req = {
-    headers: {}
-  , form: {complete: function(callback){callback(null, params)}}
-  };
+  var req = tools.get_fake_post_request('url', params);
   expect_oauth_error(res, 'oat', 'invalid_client');
   server.token_endpoint(req, res);
 }],
@@ -147,10 +171,7 @@ exports.tests = [
     grant_type: 'authorization_code',
     client_secret: 'somesecret'
   };
-  var req = {
-    headers: {}
-  , form: {complete: function(callback){callback(null, params)}}
-  };
+  var req = tools.get_fake_post_request('url', params);
   expect_oauth_error(res, 'oat', 'invalid_grant');
   server.token_endpoint(req, res);
 }],
@@ -164,10 +185,7 @@ exports.tests = [
     grant_type: 'authorization_code',
     client_secret: 'somesecret'
   };
-  var req = {
-    headers: {}
-  , form: {complete: function(callback){callback(null, params)}}
-  };
+  var req = tools.get_fake_post_request('url', params);
   var res = tools.get_expected_res(500);
   server.token_endpoint(req, res);
 }],
@@ -182,10 +200,7 @@ exports.tests = [
     grant_type: 'authorization_code',
     client_secret: 'somesecret'
   };
-  var req = {
-    headers: {}
-  , form: {complete: function(callback){callback(null, params)}}
-  };
+  var req = tools.get_fake_post_request('url', params);
   var res = tools.get_expected_res(500);
   server.token_endpoint(req, res);
 }],
@@ -200,10 +215,7 @@ exports.tests = [
     grant_type: 'authorization_code',
     client_secret: 'somesecret'
   };
-  var req = {
-    headers: {}
-  , form: {complete: function(callback){callback(null, params)}}
-  };
+  var req = tools.get_fake_post_request('url', params);
   var res = {
     writeHead: function(status_code, headers) {
       assert.equal(status_code, 200);

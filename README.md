@@ -51,7 +51,7 @@ The returned middleware will take care of requests addressed to the OAuth2 serve
 
 ## Dependencies
 
-oauth2_server_node uses [nodetk](https://github.com/AF83/nodetk) for testing, [rest-mongo](https://github.com/AF83/rest-mongo), [node-serializer](https://github.com/AF83/node-serializer) and [connect](https://github.com/senchalabs/connect).
+oauth2_server_node uses [nodetk](https://github.com/AF83/nodetk) for testing, [rest-mongo](https://github.com/AF83/rest-mongo), [node-serializer](https://github.com/AF83/node-serializer), [connect](https://github.com/senchalabs/connect) and [node-formidable]{https://github.com/felixge/node-formidable}.
 
 ## Projects using oauth2_server_node
 
